@@ -1,0 +1,9 @@
+{
+    "username": "user",
+    "password": "password",
+    "port": 4242,
+    "sounds": [
+    ],
+    "wled": [
+    ]
+}
