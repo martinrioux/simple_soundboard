@@ -1,10 +1,10 @@
-
-import os
-from pygame import mixer
-from pygame import error as pygame_error
 import logging
+import os
+
+from pygame import mixer
 
 mixer.init()
+
 
 class SoundEngine:
     def __init__(self):
@@ -18,14 +18,14 @@ class SoundEngine:
             self.sounds[sound].stop()
         mixer.music.stop()
 
-    def fadeout_music(self, delay=3):
-        mixer.music.fadeout(delay*1000)
+    def fadeout_music(self, delay=5):
+        mixer.music.fadeout(delay * 1000)
 
     def pause_music(self):
         mixer.music.pause()
 
     def resume_music(self):
-        mixer.music.play()
+        mixer.music.unpause()
 
     def play_music(self, music_path, volume=0.5, loop_playback=False):
         if not os.path.exists(music_path):

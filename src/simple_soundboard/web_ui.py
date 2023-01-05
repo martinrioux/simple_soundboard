@@ -1,18 +1,19 @@
-
-import sys
-from fastapi import Depends, FastAPI, Request, HTTPException, status
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
-import pkg_resources
-import asyncio
-import ujson
-import uvicorn
+import os
 import secrets
 import shutil
-import os
+import sys
+from dataclasses import asdict, dataclass, field
 from glob import glob
-from dataclasses import dataclass, asdict, field
+
+import pkg_resources
+import ujson
+import uvicorn
+from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.staticfiles import StaticFiles
+
+from simple_soundboard.mqtt_api import MQTTAPI
 from simple_soundboard.sound_engine import SoundEngine
 
 CONFIG_FOLDER = os.path.expanduser("~") + "/simple_soundboard/"
@@ -47,7 +48,7 @@ if not os.path.exists(MEDIA_FOLDER):
 
 
 sound_engine = SoundEngine()
-
+mqtt_api = MQTTAPI()
 
 security = HTTPBasic()
 app = FastAPI()
@@ -81,9 +82,9 @@ def get_folder_info(relative_folder_path) -> FolderInfo:
     Returns folder info
     """
     folder_info_file = f"{MEDIA_FOLDER}{relative_folder_path}/folder_info.json"
+
     if not os.path.exists(folder_info_file):
         init_folder_info_file(folder_info_file)
-
     try:
         with open(folder_info_file, "r") as f:
             folder_info = FolderInfo(**ujson.loads(f.read()))
@@ -95,11 +96,13 @@ def get_folder_info(relative_folder_path) -> FolderInfo:
 
     return folder_info
 
+
 def save_folder_info(relative_folder_path, folder_info):
     folder_info_file = f"{MEDIA_FOLDER}{relative_folder_path}/folder_info.json"
     with open(folder_info_file, "w") as f:
         f.write(ujson.dumps(asdict(folder_info), indent=4))
         f.close()
+
 
 def get_current_username(credentials: HTTPBasicCredentials = Depends(security)):
     config = get_config()
@@ -116,7 +119,7 @@ def get_current_username(credentials: HTTPBasicCredentials = Depends(security)):
     return credentials.username
 
 
-@app.get('/api/get_config')
+@app.get("/api/get_config")
 async def api_get_config(username: str = Depends(get_current_username)):
     """
     Returns config
@@ -125,7 +128,7 @@ async def api_get_config(username: str = Depends(get_current_username)):
     return JSONResponse(config)
 
 
-@app.post('/api/get_folder_info')
+@app.post("/api/get_folder_info")
 async def api_get_folder_info(request: Request, username: str = Depends(get_current_username)):
     """
     Returns folder info
@@ -145,7 +148,6 @@ async def api_get_folder_info(request: Request, username: str = Depends(get_curr
         is_folder = os.path.isdir(f)
 
         if is_folder:
-            print("folder",filename)
             config.content.append(FileInfo(filename, is_folder=True))
         else:
             extension = os.path.splitext(f)[1]
@@ -168,7 +170,7 @@ async def api_get_folder_info(request: Request, username: str = Depends(get_curr
     return JSONResponse(asdict(filtered_folder_info))
 
 
-@app.post('/api/upload_file')
+@app.post("/api/upload_file")
 async def api_upload_file(request: Request, username: str = Depends(get_current_username)):
     """
     Upload a file
@@ -177,6 +179,10 @@ async def api_upload_file(request: Request, username: str = Depends(get_current_
     filename = request.headers.get("filename")
     current_folder = request.headers.get("current_folder")
 
+    extension = os.path.splitext(filename)[1]
+    if extension not in [".mp3", ".ogg"]:
+        return JSONResponse({"success": False})
+
     with open(f"{MEDIA_FOLDER}{current_folder}/{filename}", "wb") as f:
         f.write(data)
         f.close()
@@ -184,7 +190,7 @@ async def api_upload_file(request: Request, username: str = Depends(get_current_
     return JSONResponse({"success": True})
 
 
-@app.post('/api/delete_file')
+@app.post("/api/delete_file")
 async def api_delete_file(request: Request, username: str = Depends(get_current_username)):
     """
     Delete a file
@@ -197,22 +203,30 @@ async def api_delete_file(request: Request, username: str = Depends(get_current_
     return JSONResponse({"success": True})
 
 
-@app.post('/api/play_sound')
-async def api_play_sound(request: Request, username: str = Depends(get_current_username)):
+def api_play_sound(file_info: FileInfo):
+    """
+    Plays a sound defined by FileInfo
+    """
+    if file_info.is_music:
+        sound_engine.play_music(
+            f"{MEDIA_FOLDER}{file_info.filename}", file_info.volume, file_info.loop_playback
+        )
+    else:
+        sound_engine.play_sound(f"{MEDIA_FOLDER}{file_info.filename}", file_info.volume)
+
+
+@app.post("/api/play_sound")
+async def web_ui_play_sound(request: Request, username: str = Depends(get_current_username)):
     """
     Plays a sound
     """
     file_info = await request.json()
     file_info = FileInfo(**file_info["file"])
-
-    if file_info.is_music:
-        sound_engine.play_music(f"{MEDIA_FOLDER}{file_info.filename}", file_info.volume, file_info.loop_playback)
-    else:
-        sound_engine.play_sound(f"{MEDIA_FOLDER}{file_info.filename}", file_info.volume)
+    api_play_sound(file_info)
     return JSONResponse({"success": True})
 
 
-@app.get('/api/stop_all_sounds')
+@app.get("/api/stop_all_sounds")
 async def api_stop_all_sounds(request: Request, username: str = Depends(get_current_username)):
     """
     Stops all playing sounds
@@ -221,7 +235,7 @@ async def api_stop_all_sounds(request: Request, username: str = Depends(get_curr
     return JSONResponse({"success": True})
 
 
-@app.get('/api/fadeout_music')
+@app.get("/api/fadeout_music")
 async def api_fadeout_music(request: Request, username: str = Depends(get_current_username)):
     """
     Fadeout Music
@@ -230,7 +244,25 @@ async def api_fadeout_music(request: Request, username: str = Depends(get_curren
     return JSONResponse({"success": True})
 
 
-@app.post('/api/save_folder_info')
+@app.get("/api/pause_music")
+async def api_pause_music(request: Request, username: str = Depends(get_current_username)):
+    """
+    Pause Music
+    """
+    sound_engine.pause_music()
+    return JSONResponse({"success": True})
+
+
+@app.get("/api/resume_music")
+async def api_resume_music(request: Request, username: str = Depends(get_current_username)):
+    """
+    Resume (unpause) Music
+    """
+    sound_engine.resume_music()
+    return JSONResponse({"success": True})
+
+
+@app.post("/api/save_folder_info")
 async def api_save_folder_info(request: Request, username: str = Depends(get_current_username)):
     """
     Save current folder Info
@@ -245,16 +277,67 @@ async def api_save_folder_info(request: Request, username: str = Depends(get_cur
     save_folder_info(current_folder, folder_info)
     return JSONResponse({"success": True})
 
+
 @app.get("/{full_path:path}", include_in_schema=False)
 def root(request: Request, full_path: str, username: str = Depends(get_current_username)):
     index_file = pkg_resources.resource_string(__name__, "./index.html").decode("utf-8", "ignore")
     return HTMLResponse(index_file)
 
+
+MQTT_API_MAPPING = {
+    "simple_soundboard/stop_all": api_stop_all_sounds,
+    "simple_soundboard/fadeout": api_fadeout_music,
+    "simple_soundboard/pause_music": api_pause_music,
+    "simple_soundboard/resume_music": api_resume_music,
+}
+
+
+def find_sound_by_topic(topic):
+    """
+    Returns FileInfo from all folders that match a MQTT topic from the Web UI
+    """
+    matchs = []
+    all_info_files = glob(f"{MEDIA_FOLDER}**/folder_info.json", recursive=True)
+    for info_file in all_info_files:
+        info = get_folder_info(info_file.split(MEDIA_FOLDER, 1)[1].rsplit("folder_info.json", 1)[0])
+        for sound in info.content:
+            if sound.mqtt_topic == topic:
+                matchs.append(sound)
+
+    return matchs
+
+
+def on_message(client, userdata, message):
+    if message.topic == "simple_soundboard/stop_all":
+        sound_engine.stop_all_sounds()
+    elif message.topic == "simple_soundboard/fadeout":
+        sound_engine.fadeout_music()
+    elif message.topic == "simple_soundboard/pause_music":
+        sound_engine.pause_music()
+    elif message.topic == "simple_soundboard/resume_music":
+        sound_engine.resume_music()
+    elif message.topic.startswith("simple_soundboard/play/"):
+        sounds = find_sound_by_topic(message.topic.split("simple_soundboard/play/", 1)[1])
+        for sound in sounds:
+            api_play_sound(sound)
+
+
 def start():
     sound_engine.init()
+    mqtt_config = get_config()["mqtt"]
 
-    uvicorn.run(app, host='0.0.0.0', port=get_config()["port"])
+    if mqtt_config["mqtt_api_enabled"]:
+        mqtt_api.start(
+            mqtt_config["host"],
+            mqtt_config["port"],
+            mqtt_config["username"],
+            mqtt_config["password"],
+            on_message,
+        )
+
+    uvicorn.run(app, host="0.0.0.0", port=get_config()["port"])
     return sys.exit()
+
 
 if __name__ == "__main__":
     start()

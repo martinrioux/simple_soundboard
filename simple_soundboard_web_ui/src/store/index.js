@@ -58,6 +58,20 @@ export default new Vuex.Store({
       })
         .catch(console.error);
     },
+    pauseMusic({}) {
+      return axios.get('/api/pause_music')
+        .then( function(result) {
+          return result.data
+      })
+        .catch(console.error);
+    },
+    resumeMusic({}) {
+      return axios.get('/api/resume_music')
+        .then( function(result) {
+          return result.data
+      })
+        .catch(console.error);
+    },
     saveFolderInfo({}, info) {
       return axios.post('/api/save_folder_info', info)
         .then( function(result) {

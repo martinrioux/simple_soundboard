@@ -1,39 +1,32 @@
-# bottango_playback_interface
-Control Bottango through its Web API from python.
-
-This python3.7+ module is made to interface with Bottango, a Hardware/Robot/Animatronics animation software created by Evan McMahon
-
-## [What is Bottango](https://www.bottango.com/)
+# Simple Soundboard
+Simple soundboard web app that plays sounds on a central server
 
 ## Installation
 Install through pip with
 
-`pip install bottango_playback_interface`
+`pip install simple_soundboard`
 
 ## Usage
-Start by creating your animations with Bottango, enable the Web API and enter the 'Animate' mode
+Edit config in ~/simple_soundboard/config.json
+Start by running
+`simple_soundboard`
 
-Then from your python script
-
-```python
-from bottango_playback_interface import BottangoPlaybackInterface
-
-bpi = BottangoPlaybackInterface("localhost", 59224)
-bpi.play_animation("animation_name_to_play")
-bpi.wait_animation_done()
-
+### MQTT API
+MQTT Server is configured in ~/simple_soundboard/config.json
+MQTT API includes
+```
+simple_soundboard/stop_all
+simple_soundboard/fadeout
+simple_soundboard/pause_music
+simple_soundboard/resume_music
+simple_soundboard/play/<topic_from_web_ui>
 ```
 
-### Methods
-```python
-bpi.play_animation("animation_name_to_play")     # Plays the animation with the corresponding name
-bpi.pause_animation()                            # Pause the current animation
-bpi.resume_animation()                           # Resume the current animation
-bpi.get_playback_state()                         # Get various informations from bottango
-bpi.wait_animation_done(timeout=max_wait_time)   # Wait until the animation is over before returning or the timeout runs out.
-bpi.get_animation_list()                         # Returns an array with all available animation names
-bpi.emergency_stop()                             # Turn off live mode from Bottango, must be reenable from there.
-```
+No payload required
+
+## TODO
+- Make the config editable online
+- Multiple music?
 
 
 ## Development

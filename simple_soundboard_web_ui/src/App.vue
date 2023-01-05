@@ -56,8 +56,16 @@ body {
   padding: 30px;
 }
 
+.navbar {
+  padding: 0px !important;
+}
+
+.container {
+  min-width: 90% !important;
+}
+
 .navbar-custom {
-    background-color:#2b5199;
+  background-color:#2b5199;
 }/* change the brand and text color */
 
 .navbar-custom .navbar-brand,
@@ -88,9 +96,14 @@ body {
   color: rgb(15, 0, 99);
 }
 
-.card {
-  color: rgba(0, 0, 0, 1);
-  background-color: rgba(255, 255, 255, 0.95) !important;
+div .container {
+  width: 100% !important;
 }
-
+main {
+  width: 100% !important;
+}
+.col{
+  padding-left: 5px !important;
+  padding-right: 5px !important;
+}
 </style>
