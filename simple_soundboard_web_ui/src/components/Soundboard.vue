@@ -8,13 +8,16 @@
         <b-col ><b-button size="sm" variant="primary" @click="revert_folder_info()">Reload folder config</b-button></b-col>
         <b-col><b-button size="sm" variant="secondary" @click="fadeout_music()">Fadeout Music</b-button></b-col>
         <b-col><b-button size="sm" variant="warning" @click="pause_music()">Pause music</b-button><b-button size="sm" variant="primary" @click="resume_music()">Resume music</b-button></b-col>
-        <b-col><b-button size="sm" variant="danger" @click="stop_all_sounds()">Stop all sounds</b-button></b-col>
+        <b-col><b-button size="sm" variant="danger" @click="stop_sounds()">Stop sounds</b-button></b-col>
       </b-row>
     </b-card>
     <p/>
     <b-card>
-      <h3>
-        Current Folder: {{ current_folder == '' ? 'root' : current_folder}}
+      <h3 v-if="current_folder == ''">
+        Current Folder: root
+      </h3>
+      <h3 v-else>
+        <b-button @click="folder_back()" variant="primary" style="float: left">Back</b-button> Current Folder: {{ current_folder }}
       </h3>
     </b-card>
     <p/>
@@ -23,83 +26,121 @@
         <div class="card" style="margin-bottom:10px">
           <div class="card-body action-bg">
             <div style="float: left;" class="handle"><b-icon icon="grip-horizontal" font-scale="1"></b-icon></div>
-            <div @click="playSound(file)" style="bg-color=black;">
-              <label>
-                <b-icon :icon="file.icon" font-scale="1"></b-icon>
-                <b-icon v-if="file.is_music" icon="music-note" font-scale="1"></b-icon>
-                {{ file.filename }}
-                <b-icon v-if="file.is_music" icon="music-note" font-scale="1"></b-icon>
-                <b-icon :icon="file.icon" font-scale="1"></b-icon>
-              </label>
-            </div>
-            <div class="row">
-            <div class="col-md-2">
-              <template v-if="file.is_music">
-                <b-form-checkbox v-model="file.loop_playback"> <b-icon icon="arrow-repeat" font-scale="1"></b-icon></b-form-checkbox>
-              </template>
-            </div>
-            <div class="col-md-8">
-              <b-form-input v-model.number="file.volume" type="range" min="0" max="1" step="0.05"></b-form-input>
-            </div>
-            <div class="col-md-2" v-b-toggle="'collapse'+i">
+            <template v-if="file.is_folder">
+              <div @click="set_current_folder(file)">
+                {{ file.filename.split("/").at(-1) }}<br/>
+                <b-icon :icon="file.icon" font-scale="2.3"></b-icon>
+              </div>
+              <div style="float: right;" v-b-toggle="'collapse'+i">
                 <span class="float-right when-opened">
                     <b-icon icon="caret-down-square-fill" />
                 </span>
                 <span class="float-right when-closed">
                     <b-icon icon="caret-down-square" />
                 </span>
-            </div>
-            </div>
-            <b-collapse :id="'collapse'+i">
-              <div class="row">
-                <label class="col-md-6">Music?</label>
-                <div class="col-md-6">
-                  <b-form-checkbox v-model="file.is_music"></b-form-checkbox>
+              </div>
+              <b-collapse :id="'collapse'+i">
+                <div class="row">
+                  <label class="col-md-3">Icon</label>
+                  <div class="col-md-9">
+                    <b-form-input size="sm" v-model="file.icon"></b-form-input>
+                  </div>
                 </div>
+                <br/>
+                <div class="row">
+                  <label class="col-md-3">Delete</label>
+                  <div class="col-md-9">
+                    <b-button v-b-modal="'delete_modal'+i" variant="danger" size="sm"><b-icon icon="trash"></b-icon></b-button>
+                    <b-modal
+                              :id="'delete_modal'+i"
+                              ref="modal"
+                              title="Confirm action"
+                              @ok="delete_file(file)"
+                              okVariant='danger'
+                              okTitle='Yes'
+                            >
+                        <p class="my-4">
+                          Delete folder? All file inside will be deleted!</p>
+                      </b-modal>
+                  </div>
+                </div>
+              </b-collapse>
+            </template>
+            <template v-else>
+              <div @click="playSound(file)">
+                <b-icon v-if="file.is_music" icon="music-note" font-scale="1"></b-icon>
+                <b-icon v-if="file.is_music" icon="music-note" font-scale="1"></b-icon>
+                <b-icon v-if="file.is_music" icon="music-note" font-scale="1"></b-icon>
+                <br/>
+                <label>
+                  <b-icon :icon="file.icon" font-scale="1"></b-icon>
+                  {{ file.filename.split("/").at(-1) }}
+                  <b-icon :icon="file.icon" font-scale="1"></b-icon>
+                </label>
               </div>
               <div class="row">
-                <label class="col-md-6">MQTT Topic</label>
-                <div class="col-md-6">
-                  <b-form-input size="sm" v-model="file.mqtt_topic"></b-form-input>
-                </div>
+              <div class="col-md-2">
+                <template v-if="file.is_music">
+                  <b-form-checkbox v-model="file.loop_playback"> <b-icon icon="arrow-repeat" font-scale="1"></b-icon></b-form-checkbox>
+                </template>
               </div>
-              <div class="row">
-                <label class="col-md-6">Icon</label>
-                <div class="col-md-6">
-                  <b-form-input size="sm" v-model="file.icon"></b-form-input>
-                </div>
+              <div class="col-md-8">
+                <b-form-input v-model.number="file.volume" type="range" min="0" max="1" step="0.05"></b-form-input>
               </div>
-              <div class="row">
-                <label class="col-md-6">Start Time</label>
-                <div class="col-md-6">
-                  <b-form-input size="sm" v-model.number="file.start_time"></b-form-input>
-                </div>
+              <div class="col-md-2" v-b-toggle="'collapse'+i">
+                  <span class="float-right when-opened">
+                      <b-icon icon="caret-down-square-fill" />
+                  </span>
+                  <span class="float-right when-closed">
+                      <b-icon icon="caret-down-square" />
+                  </span>
               </div>
-              <div class="row">
-                <label class="col-md-6">Stop Time</label>
-                <div class="col-md-6">
-                  <b-form-input size="sm" v-model.number="file.stop_time"></b-form-input>
-                </div>
               </div>
-              <br/>
-              <div class="row">
-                <label class="col-md-6">Delete</label>
-                <div class="col-md-6">
-                  <b-button v-b-modal="'delete_modal'+i" variant="danger" size="sm"><b-icon icon="trash"></b-icon></b-button>
-                  <b-modal
-                            :id="'delete_modal'+i"
-                            ref="modal"
-                            title="Confirm action"
-                            @ok="delete_file(file)"
-                            okVariant='danger'
-                            okTitle='Yes'
-                          >
-                      <p class="my-4">
-                        Delete file?</p>
-                    </b-modal>
+              <b-collapse :id="'collapse'+i">
+                <div class="row">
+                  <label class="col-md-3">Music?</label>
+                  <div class="col-md-9">
+                    <b-form-checkbox v-model="file.is_music"></b-form-checkbox>
+                  </div>
                 </div>
-              </div>
-            </b-collapse>
+                <div class="row">
+                  <label class="col-md-3">MQTT Topic</label>
+                  <div class="col-md-9">
+                    <b-form-input size="sm" v-model="file.mqtt_topic"></b-form-input>
+                  </div>
+                </div>
+                <div class="row">
+                  <label class="col-md-3">Icon</label>
+                  <div class="col-md-9">
+                    <b-form-input size="sm" v-model="file.icon"></b-form-input>
+                  </div>
+                </div>
+                <!-- <div class="row">
+                  <label class="col-md-3">Start Time</label>
+                  <div class="col-md-9">
+                    <b-form-input size="sm" v-model.number="file.start_time"></b-form-input>
+                  </div>
+                </div> -->
+                <br/>
+                <div class="row">
+                  <label class="col-md-3">Delete</label>
+                  <div class="col-md-9">
+                    <b-button v-b-modal="'delete_modal'+i" variant="danger" size="sm"><b-icon icon="trash"></b-icon></b-button>
+                    <b-modal
+                              :id="'delete_modal'+i"
+                              ref="modal"
+                              title="Confirm action"
+                              @ok="delete_file(file)"
+                              okVariant='danger'
+                              okTitle='Yes'
+                            >
+                        <p class="my-4">
+                          Delete file?</p>
+                      </b-modal>
+                  </div>
+                </div>
+              </b-collapse>
+            </template>
           </div>
         </div>
       </b-col>
@@ -108,7 +149,26 @@
     <b-row cols="3">
       <b-col class="ml-md-auto">
         <b-card>
-          <b-button variant="primary" @click="triggerUpload()">Upload new sound</b-button>
+          <b-row>
+            <b-col>
+              <b-button variant="primary" @click="triggerUpload()">Upload new sound</b-button>
+            </b-col>
+            <b-col>
+              <b-button variant="primary" v-b-modal="'new_folder_modal'">Create new folder</b-button>
+              <b-modal
+                              id="new_folder_modal"
+                              ref="modal"
+                              title="Confirm action"
+                              @ok="create_new_folder(new_folder_name)"
+                              okVariant='primary'
+                              okTitle='Yes'
+                            >
+                        <p class="my-4">
+                          New folder name
+                          <b-form-input size="sm" v-model="new_folder_name"></b-form-input></p>
+                      </b-modal>
+            </b-col>
+          </b-row>
         </b-card>
       </b-col>
     </b-row>
@@ -125,7 +185,8 @@ export default {
   name: 'Soundboard',
   data: function() {
     return {
-      upload_file: null
+      upload_file: null,
+      new_folder_name: ""
     }
   },
   props: {
@@ -142,7 +203,10 @@ export default {
     },
     current_folder: {
       get() {
-          return this.$store.state.current_folder
+          return this.$store.getters["getCurrentFolder"]
+      },
+      set(value) {
+          this.$store.commit('setCurrentFolder', value)
       }
     },
     folder_info_changed: {
@@ -153,15 +217,30 @@ export default {
     }
   },
   methods: {
+    set_current_folder(value) {
+      this.current_folder = value.filename
+      this.get_folder_info();
+    },
+    folder_back() {
+      this.current_folder = this.current_folder.split("/").slice(0,-1).join("/");
+      this.get_folder_info();
+    },
     playSound(value) {
       console.log(value.filename);
       this.$store.dispatch('playSound', value)
     },
-    get_folder_info(value) {
-      this.$store.dispatch('getFolderInfo', value)
+    get_folder_info() {
+      this.$store.dispatch('getFolderInfo', this.current_folder)
     },
-    stop_all_sounds() {
-      this.$store.dispatch('stopAllSounds')
+    create_new_folder(new_folder_name) {
+      this.$store.dispatch('createNewFolder', this.current_folder + "/" + new_folder_name)
+      .then(this.get_folder_info());
+    },
+    stop_sounds() {
+      this.$store.dispatch('stopSounds')
+    },
+    stop_all() {
+      this.$store.dispatch('stopAll')
     },
     fadeout_music() {
       this.$store.dispatch('fadeoutMusic')
@@ -173,11 +252,11 @@ export default {
       this.$store.dispatch('resumeMusic')
     },
     revert_folder_info() {
-      this.get_folder_info(this.current_folder);
+      this.get_folder_info();
     },
     save_folder_info() {
       this.$store.dispatch('saveFolderInfo', {current_folder: this.current_folder, folder_info: this.folder_info})
-      this.get_folder_info(this.current_folder);
+      this.get_folder_info();
     },
     triggerUpload() {
       this.$refs.fileInput.$el.click()
@@ -187,15 +266,15 @@ export default {
       var filename = this.$refs.fileInput.files[0].name;
       console.log(filename)
       this.$store.dispatch('uploadFile', {data: data, current_folder: this.current_folder, filename: filename})
-      .then(this.get_folder_info(this.current_folder));
+      .then(this.get_folder_info());
     },
     delete_file(file) {
       this.$store.dispatch('delete_file', file)
-      .then(this.get_folder_info(this.current_folder));
+      .then(this.get_folder_info());
     },
   },
   created() {
-    this.get_folder_info(this.current_folder);
+    this.get_folder_info();
   },
 }
 </script>
@@ -227,4 +306,12 @@ export default {
   padding-bottom: 3px !important;
 }
 
+div .row {
+  padding-left: 10px !important;
+  padding-right: 10px !important;
+}
+div .col {
+  padding-left: 5px !important;
+  padding-right: 5px !important;
+}
 </style>

@@ -2,6 +2,7 @@
   <div id="app">
     <div class="main-section">
       <b-navbar toggleable="lg" class="navbar-dark navbar-custom">
+        <b-navbar-brand style="margin-left: 15px" href="#">Simple Soundboard</b-navbar-brand>
         <b-navbar-toggle target="nav-collapse"></b-navbar-toggle>
           <b-collapse id="nav-collapse" is-nav>
             <b-navbar-nav>
@@ -10,14 +11,14 @@
               </b-nav-item>
             </b-navbar-nav>
           </b-collapse>
+        </b-navbar>
+        <p/>
+        <div class="container">
+          <main>
+            <router-view/>
+          </main>
           <div class="by_whom">By <a href="https://martinrioux.github.io">Martin Rioux</a></div>
-      </b-navbar>
-      <p/>
-      <div class="container">
-        <main>
-          <router-view/>
-        </main>
-      </div>
+        </div>
     </div>
   </div>
 </template>
@@ -89,12 +90,19 @@ body {
 
 
 .by_whom {
-  color: rgba(255,255,255,.8);
+  color: rgba(216, 216, 216, 0.8);
+  margin-right: 15px;
+  float: left;
 }
 
 .by_whom a {
-  color: rgb(15, 0, 99);
+  color: rgb(255, 255, 255);
 }
+
+.by_whom a:hover {
+  color: rgb(167, 157, 255);
+}
+
 
 div .container {
   width: 100% !important;
@@ -102,8 +110,5 @@ div .container {
 main {
   width: 100% !important;
 }
-.col{
-  padding-left: 5px !important;
-  padding-right: 5px !important;
-}
+
 </style>

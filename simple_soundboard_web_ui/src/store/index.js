@@ -18,6 +18,9 @@ export default new Vuex.Store({
     setFolderInfo(state, data) {
       state.initial_folder_info.info = JSON.stringify(data);
       state.folder_info = data;
+    },
+    setCurrentFolder(state, folder) {
+      state.current_folder = folder;
     }
   },
   actions: {
@@ -44,8 +47,15 @@ export default new Vuex.Store({
       })
         .catch(console.error);
     },
-    stopAllSounds({}) {
-      return axios.get('/api/stop_all_sounds')
+    stopAll({}) {
+      return axios.get('/api/stop_all')
+        .then( function(result) {
+          return result.data
+      })
+        .catch(console.error);
+    },
+    stopSounds({}) {
+      return axios.get('/api/stop_sounds')
         .then( function(result) {
           return result.data
       })
@@ -86,6 +96,13 @@ export default new Vuex.Store({
       })
         .catch(console.error);
     },
+    createNewFolder({}, value) {
+      return axios.post('/api/create_new_folder', {new_folder_name: value})
+        .then(function(result) {
+          return result.data
+      })
+        .catch(console.error);
+    },
     uploadFile({}, data) {
       return axios.post('/api/upload_file', data.data, {headers: {'current_folder': data.current_folder, filename: data.filename}})
         .then( function(result) {
@@ -103,6 +120,9 @@ export default new Vuex.Store({
     },
     getInitialFolderInfo(state) {
       return state.initial_folder_info.info
+    },
+    getCurrentFolder(state) {
+      return state.current_folder
     }
   },
   modules: {

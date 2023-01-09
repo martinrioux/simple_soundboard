@@ -1,3 +1,4 @@
+import logging
 import os
 import secrets
 import shutil
@@ -16,6 +17,9 @@ from fastapi.staticfiles import StaticFiles
 from simple_soundboard.mqtt_api import MQTTAPI
 from simple_soundboard.sound_engine import SoundEngine
 
+logging.basicConfig(format="%(levelname)s: %(message)s", level=logging.INFO)
+logger = logging.getLogger()
+
 CONFIG_FOLDER = os.path.expanduser("~") + "/simple_soundboard/"
 MEDIA_FOLDER = os.path.expanduser("~") + "/simple_soundboard/media/"
 CONFIG_FILE = CONFIG_FOLDER + "config.json"
@@ -27,8 +31,6 @@ class FileInfo:
     volume: float = 0.5
     is_music: bool = False
     is_folder: bool = False
-    start_time: float = 0
-    stop_time: float = -1
     loop_playback: bool = False
     mqtt_topic: str = None
     icon: str = ""
@@ -77,6 +79,11 @@ def init_folder_info_file(info_file_path):
         f.write(ujson.dumps(asdict(FolderInfo())))
 
 
+def mqtt_enabled():
+    mqtt_config = get_config()["mqtt"]
+    return bool(mqtt_config["mqtt_api_enabled"])
+
+
 def get_folder_info(relative_folder_path) -> FolderInfo:
     """
     Returns folder info
@@ -90,7 +97,7 @@ def get_folder_info(relative_folder_path) -> FolderInfo:
             folder_info = FolderInfo(**ujson.loads(f.read()))
             for i in range(len(folder_info.content)):
                 folder_info.content[i] = FileInfo(**folder_info.content[i])
-    except ValueError:
+    except (ValueError, TypeError):
         folder_info = FolderInfo()
         save_folder_info(relative_folder_path, folder_info)
 
@@ -148,7 +155,7 @@ async def api_get_folder_info(request: Request, username: str = Depends(get_curr
         is_folder = os.path.isdir(f)
 
         if is_folder:
-            config.content.append(FileInfo(filename, is_folder=True))
+            config.content.append(FileInfo(filename, is_folder=True, icon="folder"))
         else:
             extension = os.path.splitext(f)[1]
             if extension not in [".mp3", ".ogg"]:
@@ -157,6 +164,8 @@ async def api_get_folder_info(request: Request, username: str = Depends(get_curr
 
     filtered_folder_info = FolderInfo()
     for file in config.content:
+        if os.path.dirname(file.filename) != current_folder:
+            continue
         if not os.path.exists(f"{MEDIA_FOLDER}{file.filename}"):
             continue
         if any([x.filename == file.filename for x in filtered_folder_info.content]):
@@ -197,8 +206,21 @@ async def api_delete_file(request: Request, username: str = Depends(get_current_
     """
     file_info = await request.json()
     file_info = FileInfo(**file_info["file"])
+    if file_info.is_folder:
+        shutil.rmtree(f"{MEDIA_FOLDER}{file_info.filename}")
+    else:
+        os.remove(f"{MEDIA_FOLDER}{file_info.filename}")
 
-    os.remove(f"{MEDIA_FOLDER}{file_info.filename}")
+    return JSONResponse({"success": True})
+
+
+@app.post("/api/create_new_folder")
+async def api_create_new_folder(request: Request, username: str = Depends(get_current_username)):
+    """
+    Create a new folder
+    """
+    file_info = await request.json()
+    os.makedirs(f"{MEDIA_FOLDER}{file_info['new_folder_name']}", exist_ok=True)
 
     return JSONResponse({"success": True})
 
@@ -207,6 +229,9 @@ def api_play_sound(file_info: FileInfo):
     """
     Plays a sound defined by FileInfo
     """
+    if mqtt_enabled() and file_info.mqtt_topic not in ["", None]:
+        mqtt_api.mqtt.publish(f"simple_soundboard/playing/{file_info.mqtt_topic}")
+
     if file_info.is_music:
         sound_engine.play_music(
             f"{MEDIA_FOLDER}{file_info.filename}", file_info.volume, file_info.loop_playback
@@ -226,12 +251,25 @@ async def web_ui_play_sound(request: Request, username: str = Depends(get_curren
     return JSONResponse({"success": True})
 
 
-@app.get("/api/stop_all_sounds")
-async def api_stop_all_sounds(request: Request, username: str = Depends(get_current_username)):
+@app.get("/api/stop_sounds")
+async def api_stop_sounds(request: Request, username: str = Depends(get_current_username)):
     """
     Stops all playing sounds
     """
-    sound_engine.stop_all_sounds()
+    if mqtt_enabled():
+        mqtt_api.mqtt.publish("simple_soundboard/stopped_sounds")
+    sound_engine.stop_sounds()
+    return JSONResponse({"success": True})
+
+
+@app.get("/api/stop_all")
+async def api_stop_all(request: Request, username: str = Depends(get_current_username)):
+    """
+    Stops all playing sounds
+    """
+    if mqtt_enabled():
+        mqtt_api.mqtt.publish("simple_soundboard/stopped_all")
+    sound_engine.stop_all()
     return JSONResponse({"success": True})
 
 
@@ -284,14 +322,6 @@ def root(request: Request, full_path: str, username: str = Depends(get_current_u
     return HTMLResponse(index_file)
 
 
-MQTT_API_MAPPING = {
-    "simple_soundboard/stop_all": api_stop_all_sounds,
-    "simple_soundboard/fadeout": api_fadeout_music,
-    "simple_soundboard/pause_music": api_pause_music,
-    "simple_soundboard/resume_music": api_resume_music,
-}
-
-
 def find_sound_by_topic(topic):
     """
     Returns FileInfo from all folders that match a MQTT topic from the Web UI
@@ -309,7 +339,9 @@ def find_sound_by_topic(topic):
 
 def on_message(client, userdata, message):
     if message.topic == "simple_soundboard/stop_all":
-        sound_engine.stop_all_sounds()
+        sound_engine.stop_all()
+    elif message.topic == "simple_soundboard/stop_sounds":
+        sound_engine.stop_sounds()
     elif message.topic == "simple_soundboard/fadeout":
         sound_engine.fadeout_music()
     elif message.topic == "simple_soundboard/pause_music":
@@ -325,7 +357,6 @@ def on_message(client, userdata, message):
 def start():
     sound_engine.init()
     mqtt_config = get_config()["mqtt"]
-
     if mqtt_config["mqtt_api_enabled"]:
         mqtt_api.start(
             mqtt_config["host"],
@@ -334,6 +365,8 @@ def start():
             mqtt_config["password"],
             on_message,
         )
+    else:
+        logger.info("MQTT API is disabled")
 
     uvicorn.run(app, host="0.0.0.0", port=get_config()["port"])
     return sys.exit()

@@ -3,7 +3,7 @@ import os
 
 from pygame import mixer
 
-mixer.init()
+mixer.init(buffer=4096)
 
 
 class SoundEngine:
@@ -13,10 +13,14 @@ class SoundEngine:
     def init(self):
         return
 
-    def stop_all_sounds(self):
+    def stop_all(self):
         for sound in self.sounds:
             self.sounds[sound].stop()
         mixer.music.stop()
+
+    def stop_sounds(self):
+        for sound in self.sounds:
+            self.sounds[sound].stop()
 
     def fadeout_music(self, delay=5):
         mixer.music.fadeout(delay * 1000)

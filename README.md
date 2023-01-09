@@ -16,6 +16,7 @@ MQTT Server is configured in ~/simple_soundboard/config.json
 MQTT API includes
 ```
 simple_soundboard/stop_all
+simple_soundboard/stop_sounds
 simple_soundboard/fadeout
 simple_soundboard/pause_music
 simple_soundboard/resume_music
@@ -23,6 +24,14 @@ simple_soundboard/play/<topic_from_web_ui>
 ```
 
 No payload required
+
+The server output two MQTT topic
+```
+simple_soundboard/stopped_all
+simple_soundboard/stopped_sounds
+simple_soundboard/playing/<topic_from_web_ui> (If MQTT Topic is set)
+```
+will be published
 
 ## TODO
 - Make the config editable online
