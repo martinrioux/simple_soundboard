@@ -1,6 +1,9 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [1.0.3] - 2023-01-16
+- WAV confirmed working
+
 ## [1.0.2] - 2023-01-09
 - Increased audio buffer to prevent glitch on Raspberry Pi (tested with Raspberry pi 3 B)
 
