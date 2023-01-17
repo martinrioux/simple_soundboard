@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "simple_soundboard"
-version = "1.0.2"
+version = "1.0.3"
 description = "Simple Soundboard"
 authors = ["Martin Rioux"]
 license = "Apache 2.0"
