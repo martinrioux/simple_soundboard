@@ -28,6 +28,7 @@ CONFIG_FILE = CONFIG_FOLDER + "config.json"
 @dataclass
 class FileInfo:
     filename: str
+    display_name: str = ""
     volume: float = 0.5
     is_music: bool = False
     is_folder: bool = False

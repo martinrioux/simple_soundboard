@@ -27,8 +27,13 @@
           <div class="card-body action-bg">
             <div style="float: left;" class="handle"><b-icon icon="grip-horizontal" font-scale="1"></b-icon></div>
             <template v-if="file.is_folder">
-              <div @click="set_current_folder(file)">
-                {{ file.filename.split("/").at(-1) }}<br/>
+              <div style="width: 100%;" @click="set_current_folder(file)">
+                <template v-if="file.display_name.trim()">
+                  {{ file.display_name }}<br/>
+                </template>
+                <template v-else>
+                  {{ file.filename.split("/").at(-1) }}<br/>
+                </template>
                 <b-icon :icon="file.icon" font-scale="2.3"></b-icon>
               </div>
               <div style="float: right;" v-b-toggle="'collapse'+i">
@@ -39,7 +44,16 @@
                     <b-icon icon="caret-down-square" />
                 </span>
               </div>
+              <div class="row">
+                &nbsp;
+              </div>
               <b-collapse :id="'collapse'+i">
+                <div class="row">
+                  <label class="col-md-3">Display Name</label>
+                  <div class="col-md-9">
+                    <b-form-input size="sm" v-model="file.display_name"></b-form-input>
+                  </div>
+                </div>
                 <div class="row">
                   <label class="col-md-3">Icon</label>
                   <div class="col-md-9">
@@ -67,14 +81,19 @@
               </b-collapse>
             </template>
             <template v-else>
-              <div @click="playSound(file)">
+              <div style="width: 100%;" class="btn-ripple" @click="playSound(file)">
                 <b-icon v-if="file.is_music" icon="music-note" font-scale="1"></b-icon>
                 <b-icon v-if="file.is_music" icon="music-note" font-scale="1"></b-icon>
                 <b-icon v-if="file.is_music" icon="music-note" font-scale="1"></b-icon>
                 <br/>
                 <label>
                   <b-icon :icon="file.icon" font-scale="1"></b-icon>
-                  {{ file.filename.split("/").at(-1) }}
+                  <template v-if="file.display_name.trim()">
+                    {{ file.display_name }}<br/>
+                  </template>
+                  <template v-else>
+                    {{ file.filename.split("/").at(-1) }}<br/>
+                  </template>
                   <b-icon :icon="file.icon" font-scale="1"></b-icon>
                 </label>
               </div>
@@ -97,6 +116,12 @@
               </div>
               </div>
               <b-collapse :id="'collapse'+i">
+                <div class="row">
+                  <label class="col-md-3">Display Name</label>
+                  <div class="col-md-9">
+                    <b-form-input size="sm" v-model="file.display_name"></b-form-input>
+                  </div>
+                </div>
                 <div class="row">
                   <label class="col-md-3">Music?</label>
                   <div class="col-md-9">
@@ -314,4 +339,36 @@ div .col {
   padding-left: 5px !important;
   padding-right: 5px !important;
 }
+
+.btn-ripple {
+	display: inline-block;
+	position: relative;
+	overflow: hidden;
+	transition: all ease-in-out .5s;
+}
+
+.btn-ripple::after {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: 25%;
+	height: 100%;
+	width: 50%;
+	background-color: rgb(16, 120, 255);
+	border-radius: 50%;
+	opacity: 0;
+	pointer-events: none;
+	transition: all ease-in-out 1s;
+	transform: scale(5, 5);
+}
+
+.btn-ripple:active::after {
+	padding: 0;
+	margin: 0;
+	opacity: .2;
+	transition: 0s;
+	transform: scale(0, 0);
+}
+
 </style>
