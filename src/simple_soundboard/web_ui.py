@@ -158,7 +158,7 @@ async def api_get_folder_info(request: Request, username: str = Depends(get_curr
             config.content.append(FileInfo(filename, is_folder=True, icon="folder"))
         else:
             extension = os.path.splitext(f)[1]
-            if extension not in [".mp3", ".ogg"]:
+            if extension not in [".mp3", ".ogg", ".wav"]:
                 continue
             config.content.append(FileInfo(filename))
 
@@ -189,7 +189,7 @@ async def api_upload_file(request: Request, username: str = Depends(get_current_
     current_folder = request.headers.get("current_folder")
 
     extension = os.path.splitext(filename)[1]
-    if extension not in [".mp3", ".ogg"]:
+    if extension not in [".mp3", ".ogg", ".wav"]:
         return JSONResponse({"success": False})
 
     with open(f"{MEDIA_FOLDER}{current_folder}/{filename}", "wb") as f:
